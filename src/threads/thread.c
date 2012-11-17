@@ -15,10 +15,15 @@
 #include "userprog/process.h"
 #endif
 
+#define PRIORITY
+
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
    of thread.h for details. */
 #define THREAD_MAGIC 0xcd6abf4b
+
+/* Created by Racheta */
+static struct list ready_list_priority[64];
 
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
@@ -90,7 +95,16 @@ thread_init (void)
   ASSERT (intr_get_level () == INTR_OFF);
 
   lock_init (&tid_lock);
-  list_init (&ready_list);
+	
+	#ifdef PRIORITY
+		int i;
+
+		for(i = 0; i < 64; i ++)
+			list_init (&ready_list_priority[i]);
+	#else
+  	list_init (&ready_list);
+	#endif
+  
   list_init (&all_list);
 
   /* Set up a thread structure for the running thread. */
@@ -240,12 +254,21 @@ void
 thread_unblock (struct thread *t) 
 {
   enum intr_level old_level;
+  #ifdef PRIORITY
+  	int ref_priority = t->priority;
+	#endif
 
   ASSERT (is_thread (t));
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_push_back (&ready_list, &t->elem);
+	
+	#ifdef PRIORITY
+		list_push_back (&ready_list_priority[ref_priority], &t->elem);
+	#else
+  	list_push_back (&ready_list, &t->elem);
+	#endif
+  
   t->status = THREAD_READY;
   intr_set_level (old_level);
 }
@@ -311,12 +334,21 @@ thread_yield (void)
 {
   struct thread *cur = thread_current ();
   enum intr_level old_level;
+
+	#ifdef PRIORITY
+	  int cur_priority = thread_get_priority();
+	#endif
   
   ASSERT (!intr_context ());
 
   old_level = intr_disable ();
   if (cur != idle_thread) 
-    list_push_back (&ready_list, &cur->elem);
+		#ifdef PRIORITY
+			list_push_back (&ready_list_priority[cur_priority], &cur->elem);
+		#else
+  		list_push_back (&ready_list, &cur->elem);
+		#endif
+    
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -485,6 +517,22 @@ alloc_frame (struct thread *t, size_t size)
   return t->stack;
 }
 
+/* Created by Racheta
+   Searches for the first highest priority thread. */
+static struct thread *
+next_thread_to_run_priority(void)
+{
+  int i;
+
+  for(i = 63; i >= 0; i --)
+  {
+    if(!list_empty(&ready_list_priority[i]))
+			return list_entry (list_pop_front (&ready_list_priority[i]), struct thread, elem);
+  }
+
+	return idle_thread;
+}
+
 /* Chooses and returns the next thread to be scheduled.  Should
    return a thread from the run queue, unless the run queue is
    empty.  (If the running thread can continue running, then it
@@ -556,7 +604,14 @@ static void
 schedule (void) 
 {
   struct thread *cur = running_thread ();
+
+//Changed by Racheta
+
+#ifdef PRIORITY
+	struct thread *next = next_thread_to_run_priority ();
+#else
   struct thread *next = next_thread_to_run ();
+#endif
   struct thread *prev = NULL;
 
   ASSERT (intr_get_level () == INTR_OFF);

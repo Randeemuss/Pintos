@@ -8,6 +8,7 @@
 struct semaphore 
   {
     unsigned value;             /* Current value. */
+		int priority;
     struct list waiters;        /* List of waiting threads. */
   };
 
