@@ -223,6 +223,9 @@ thread_create (const char *name, int priority,
   /* Add to run queue. */
   thread_unblock (t);
 
+  if (priority > thread_current ()->priority)
+    thread_yield(); 
+
   return tid;
 }
 
@@ -374,8 +377,15 @@ thread_foreach (thread_action_func *func, void *aux)
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void
 thread_set_priority (int new_priority) 
-{
-  thread_current ()->priority = new_priority;
+{  
+   /*Alex Writings*/	
+
+     if(new_priority <= highest_priority())
+     {
+	thread_current ()->priority = new_priority;
+	thread_yield();
+     }
+  /*End of Alex Writings*/
 }
 
 /* Returns the current thread's priority. */
@@ -636,6 +646,26 @@ allocate_tid (void)
 
   return tid;
 }
+
+/*Alex Writings*/
+
+int highest_priority()
+{
+    int i = 63;
+    while(i>=0)
+    {
+	if(!list_empty (&ready_list_priority[i]))
+	{
+	  return i;
+	}
+	i--;
+    }
+    return i;
+}
+
+/*End of Alex Writings*/
+
+
 
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
